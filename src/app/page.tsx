@@ -224,6 +224,80 @@ export default function Home() {
               </div>
             </div>
 
+            {/* SKU Performance Analysis */}
+            {basket.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 className="font-semibold text-slate-900 mb-4">SKU Performans Analizi</h2>
+                <div className="space-y-3">
+                  {(() => {
+                    const productStats = basket.map(item => {
+                      const product = products.find(p => p.id === item.productId);
+                      const calc = calculateProfitBreakdown(item, costs, 0, products);
+                      return {
+                        product,
+                        profit: calc.netProfit,
+                        revenue: calc.revenue,
+                        margin: calc.margin,
+                        quantity: item.quantity
+                      };
+                    }).filter(s => s.product);
+
+                    if (productStats.length === 0) return null;
+
+                    const totalProfit = productStats.reduce((sum, s) => sum + s.profit, 0);
+                    const totalRevenue = productStats.reduce((sum, s) => sum + s.revenue, 0);
+
+                    const sortedByProfit = [...productStats].sort((a, b) => b.profit - a.profit);
+                    const sortedByMargin = [...productStats].sort((a, b) => a.margin - b.margin);
+
+                    const topProfit = sortedByProfit[0];
+                    const bottomProfit = sortedByProfit[sortedByProfit.length - 1];
+                    const lowestMargin = sortedByMargin[0];
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                            <div className="text-sm text-green-600 mb-1">En Yüksek Kâr</div>
+                            <div className="font-semibold text-green-800">{topProfit.product?.model}</div>
+                            <div className="text-sm text-green-600">{formatTL(topProfit.profit)} ({((topProfit.profit / totalProfit) * 100).toFixed(1)}%)</div>
+                          </div>
+                          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                            <div className="text-sm text-blue-600 mb-1">En Yüksek Ciro</div>
+                            <div className="font-semibold text-blue-800">{[...productStats].sort((a, b) => b.revenue - a.revenue)[0].product?.model}</div>
+                            <div className="text-sm text-blue-600">{formatTL([...productStats].sort((a, b) => b.revenue - a.revenue)[0].revenue)}</div>
+                          </div>
+                          <div className={`rounded-lg p-4 border ${lowestMargin.margin < 0 ? 'bg-red-50 border-red-200' : lowestMargin.margin < 10 ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className={`text-sm mb-1 ${lowestMargin.margin < 0 ? 'text-red-600' : 'text-yellow-600'}`}>Risk Ürünü</div>
+                            <div className={`font-semibold ${lowestMargin.margin < 0 ? 'text-red-800' : 'text-yellow-800'}`}>{lowestMargin.product?.model}</div>
+                            <div className={`text-sm ${lowestMargin.margin < 0 ? 'text-red-600' : 'text-yellow-600'}`}>Marj: {lowestMargin.margin.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                        <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                          <p className="text-sm text-slate-700">
+                            <span className="font-medium">Toplam Kâr:</span> {formatTL(totalProfit)} ({basket.length} ürün)
+                          </p>
+                          <p className="text-sm text-slate-700 mt-1">
+                            <span className="font-medium text-green-700">Top performans:</span> {topProfit.product?.model} ürünü {((topProfit.profit / totalProfit) * 100).toFixed(0)}% kâr katkısı sağlıyor
+                          </p>
+                          {lowestMargin.margin < 0 && (
+                            <p className="text-sm text-red-600 mt-1">
+                              ⚠️ <span className="font-medium">{lowestMargin.product?.model}</span> zararda. Fiyat veya maliyet gözden geçirilmeli.
+                            </p>
+                          )}
+                          {lowestMargin.margin >= 0 && lowestMargin.margin < 10 && (
+                            <p className="text-sm text-yellow-600 mt-1">
+                              ⚠️ <span className="font-medium">{lowestMargin.product?.model}</span> düşük marj. Performans izlenmeli.
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
             {/* Product Margins Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
