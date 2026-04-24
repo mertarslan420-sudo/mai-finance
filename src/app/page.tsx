@@ -561,7 +561,7 @@ export default function Home() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className={`grid grid-cols-4 gap-4 ${basket.length === 0 ? 'opacity-50' : ''}`}>
               <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                 <div className="text-sm text-slate-500 mb-1">Toplam Yatırım</div>
                 <div className="text-2xl font-bold text-slate-900">{formatTL(totals.totalCost)}</div>
@@ -586,6 +586,13 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Empty Basket Message */}
+            {basket.length === 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <p className="text-slate-500">Sepet boş. Sipariş oluşturmak için ürün ekleyin.</p>
+              </div>
+            )}
 
             {/* SKU Performance Analysis */}
             {basket.length > 0 && (
