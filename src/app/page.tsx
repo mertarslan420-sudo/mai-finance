@@ -42,6 +42,8 @@ export default function Home() {
   });
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [newProduct, setNewProduct] = useState<{ model: string; role: 'HERO' | 'SUPPORT' | 'WEAK'; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: 'SUPPORT', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
 
   // Persist to localStorage
   useEffect(() => { localStorage.setItem('mai_products', JSON.stringify(products)); }, [products]);
@@ -84,6 +86,14 @@ export default function Home() {
 
   const removeFromBasket = (productId: string) => {
     setBasket(prev => prev.filter(i => i.productId !== productId));
+  };
+
+  const handleAddProduct = () => {
+    if (!newProduct.model || newProduct.costUSD <= 0 || newProduct.salePriceTL <= 0) return;
+    const id = 'p' + Date.now();
+    setProducts(prev => [...prev, { ...newProduct, id, shippingCost: 0, customsCost: 0, packagingCost: 0 }]);
+    setNewProduct({ model: '', role: 'SUPPORT', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
+    setShowProductModal(false);
   };
 
   return (
@@ -216,10 +226,64 @@ export default function Home() {
 
         {/* PRODUCTS TAB */}
         {activeTab === 'products' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <>
+            {showProductModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+                  <h3 className="text-lg font-semibold mb-4">Yeni Ürün Ekle</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Model</label>
+                      <input type="text" value={newProduct.model} onChange={e => setNewProduct({ ...newProduct, model: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Model adı" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+                      <select value={newProduct.role} onChange={e => setNewProduct({ ...newProduct, role: e.target.value as 'HERO' | 'SUPPORT' | 'WEAK' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                        <option value="HERO">HERO</option>
+                        <option value="SUPPORT">SUPPORT</option>
+                        <option value="WEAK">WEAK</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Maliyet (USD)</label>
+                        <input type="number" value={newProduct.costUSD || ''} onChange={e => setNewProduct({ ...newProduct, costUSD: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Satış (TL)</label>
+                        <input type="number" value={newProduct.salePriceTL || ''} onChange={e => setNewProduct({ ...newProduct, salePriceTL: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Komisyon (%)</label>
+                        <input type="number" value={newProduct.commissionRate} onChange={e => setNewProduct({ ...newProduct, commissionRate: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Reklam (%)</label>
+                        <input type="number" value={newProduct.adsRate} onChange={e => setNewProduct({ ...newProduct, adsRate: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-6">
+                    <button onClick={handleAddProduct} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500">Ekle</button>
+                    <button onClick={() => setShowProductModal(false)} className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">İptal</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
               <h2 className="font-semibold text-slate-900">Ürün Yönetimi</h2>
-              <span className="text-sm text-slate-500">T7 silinemez (HERO koruması)</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowProductModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500"
+                >
+                  + Yeni Ürün
+                </button>
+                <span className="text-sm text-slate-500">T7 silinemez (HERO koruması)</span>
+              </div>
             </div>
             <table className="w-full">
               <thead className="bg-slate-50">
@@ -261,6 +325,7 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* ORDER TAB */}
