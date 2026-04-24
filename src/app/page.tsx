@@ -285,6 +285,52 @@ export default function Home() {
     setResetConfirm(null);
   };
 
+  // Backup & Restore
+  const handleBackup = () => {
+    const backup = {
+      products,
+      basket,
+      costs,
+      inventory,
+      channel,
+      simulationPrices,
+      showVAT,
+      vatRate,
+      timestamp: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mai-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!window.confirm('Mevcut veriler yedeğinizle değiştirilecek. Devam etmek istiyor musunuz?')) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.products) setProducts(data.products);
+        if (data.basket) setBasket(data.basket);
+        if (data.costs) setCosts(data.costs);
+        if (data.inventory) setInventory(data.inventory);
+        if (data.channel) setChannel(data.channel);
+        if (data.simulationPrices) setSimulationPrices(data.simulationPrices);
+        if (typeof data.showVAT === 'boolean') setShowVAT(data.showVAT);
+        if (typeof data.vatRate === 'number') setVatRate(data.vatRate);
+      } catch {
+        alert('Geçersiz yedek dosyası');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Header */}
@@ -369,6 +415,11 @@ export default function Home() {
                   </>
                 ) : (
                   <>
+                    <button onClick={handleBackup} className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-500">Yedek Al</button>
+                    <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 cursor-pointer">
+                      Yedekten Yükle
+                      <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
+                    </label>
                     <button onClick={() => setResetConfirm('basket')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Sepeti Temizle</button>
                     <button onClick={() => setResetConfirm('inventory')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Envanteri Temizle</button>
                     <button onClick={() => setResetConfirm('all')} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200">Tüm Verileri Sıfırla</button>
