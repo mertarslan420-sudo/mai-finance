@@ -55,6 +55,20 @@ export default function Home() {
   const [newProduct, setNewProduct] = useState<{ model: string; role: string; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [simulationPrices, setSimulationPrices] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_simulationPrices');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  useEffect(() => { localStorage.setItem('mai_simulationPrices', JSON.stringify(simulationPrices)); }, [simulationPrices]);
+
+  // Get simulation price or fallback to product sale price
+  const getSimPrice = (productId: string, salePriceTL: number) => {
+    return simulationPrices[productId] ?? salePriceTL;
+  };
 
   // Get current channel commission rate
   const getChannelCommission = () => channel === 'custom' ? customCommission / 100 : CHANNEL_RATES[channel].commission;
@@ -67,16 +81,22 @@ export default function Home() {
   useEffect(() => { localStorage.setItem('mai_costs', JSON.stringify(costs)); }, [costs]);
   useEffect(() => { localStorage.setItem('mai_showVat', JSON.stringify(showVAT)); }, [showVAT]);
 
-  // Calculate totals with VAT option
+  // Calculate totals with VAT option using simulation prices
   const totals = basket.reduce((acc, item) => {
+    const product = products.find(p => p.id === item.productId);
+    const simPrice = getSimPrice(item.productId, product?.salePriceTL || 0);
     const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
+    const simRevenue = simPrice * item.quantity;
+    const simCommission = simRevenue * getChannelCommission();
+    const simAds = simRevenue * getChannelAds();
+    const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
     return {
       totalCost: acc.totalCost + calc.landedCost + (calc.extraCostPerUnit * item.quantity),
-      expectedRevenue: acc.expectedRevenue + calc.revenue,
-      expectedProfit: acc.expectedProfit + calc.netProfit,
-      totalCommission: acc.totalCommission + calc.commission,
-      totalAds: acc.totalAds + calc.adsCost,
-      totalVAT: acc.totalVAT + calc.vatAmount,
+      expectedRevenue: acc.expectedRevenue + simRevenue,
+      expectedProfit: acc.expectedProfit + simProfit,
+      totalCommission: acc.totalCommission + simCommission,
+      totalAds: acc.totalAds + simAds,
+      totalVAT: acc.totalVAT + (simProfit * (showVAT ? vatRate : 0)),
     };
   }, { totalCost: 0, expectedRevenue: 0, expectedProfit: 0, totalCommission: 0, totalAds: 0, totalVAT: 0 });
 
@@ -119,10 +139,16 @@ export default function Home() {
     // Basket section
     rows.push('');
     rows.push('BASKET');
-    rows.push('Product,Quantity');
+    rows.push('Product,Quantity,Sale Price,Simulation Price,Revenue,Net Profit');
     basket.forEach(item => {
       const product = products.find(p => p.id === item.productId);
-      rows.push(`${product?.model || item.productId},${item.quantity}`);
+      const simPrice = getSimPrice(item.productId, product?.salePriceTL || 0);
+      const calc = calculateProfitBreakdown(item, costs, 0, products, getChannelCommission(), getChannelAds());
+      const simRevenue = simPrice * item.quantity;
+      const simCommission = simRevenue * getChannelCommission();
+      const simAds = simRevenue * getChannelAds();
+      const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
+      rows.push(`${product?.model || item.productId},${item.quantity},${product?.salePriceTL || 0},${simPrice},${simRevenue.toFixed(2)},${simProfit.toFixed(2)}`);
     });
     
     // Order costs section
@@ -175,6 +201,20 @@ export default function Home() {
     if (productId === 't7') return;
     setProducts(prev => prev.filter(p => p.id !== productId));
     setDeleteConfirm(null);
+  };
+
+  const applySimulationPrice = (productId: string) => {
+    const simPrice = simulationPrices[productId];
+    if (simPrice === undefined) return;
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, salePriceTL: simPrice } : p));
+  };
+
+  const resetSimulationPrice = (productId: string) => {
+    setSimulationPrices(prev => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
   };
 
   return (
@@ -277,13 +317,20 @@ export default function Home() {
                   {(() => {
                     const productStats = basket.map(item => {
                       const product = products.find(p => p.id === item.productId);
+                      const simPrice = getSimPrice(item.productId, product?.salePriceTL || 0);
                       const calc = calculateProfitBreakdown(item, costs, 0, products, getChannelCommission(), getChannelAds());
+                      const simRevenue = simPrice * item.quantity;
+                      const simCommission = simRevenue * getChannelCommission();
+                      const simAds = simRevenue * getChannelAds();
+                      const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
+                      const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
                       return {
                         product,
-                        profit: calc.netProfit,
-                        revenue: calc.revenue,
-                        margin: calc.margin,
-                        quantity: item.quantity
+                        profit: simProfit,
+                        revenue: simRevenue,
+                        margin: simMargin,
+                        quantity: item.quantity,
+                        hasSimulation: simulationPrices[item.productId] !== undefined
                       };
                     }).filter(s => s.product);
 
@@ -645,6 +692,7 @@ export default function Home() {
                           <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">Adet</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Base Cost</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Landed Cost</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Simülasyon</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Satış</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Toplam Maliyet</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Break-even</th>
@@ -659,14 +707,19 @@ export default function Home() {
                         {basket.map(item => {
                           const product = products.find(p => p.id === item.productId);
                           if (!product) return null;
-                          const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
-                          const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
-                          const totalCost = calc.landedCost + (calc.extraCostPerUnit * item.quantity);
-                          const breakEvenPerUnit = calc.landedCost / (1 - getChannelCommission() - getChannelAds());
-                          const isLoss = product.salePriceTL < breakEvenPerUnit;
+                          const simPrice = getSimPrice(item.productId, product.salePriceTL);
+                          const calc = calculateProfitBreakdown({ ...item }, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
+                          // Override revenue with simulation price
+                          const simRevenue = simPrice * item.quantity;
+                          const simCommission = simRevenue * getChannelCommission();
+                          const simAds = simRevenue * getChannelAds();
+                          const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
+                          const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
+                          const simBreakEven = calc.landedCost / (1 - getChannelCommission() - getChannelAds());
+                          const isSimLoss = simPrice < simBreakEven;
                           
                           return (
-                            <tr key={item.productId} className={isLoss ? 'bg-red-50' : 'hover:bg-slate-50'}>
+                            <tr key={item.productId} className={isSimLoss ? 'bg-red-50' : 'hover:bg-slate-50'}>
                               <td className="px-4 py-3">
                                 <div className="font-medium text-slate-900">{product.model}</div>
                                 <div className="text-xs text-slate-400">${product.costUSD}/unit</div>
@@ -682,15 +735,37 @@ export default function Home() {
                               </td>
                               <td className="px-4 py-3 text-right text-slate-600">{formatTL(calc.baseCost)}</td>
                               <td className="px-4 py-3 text-right text-slate-600">{formatTL(calc.landedCost)}</td>
-                              <td className="px-4 py-3 text-right font-medium text-slate-900">{formatTL(product.salePriceTL)}</td>
-                              <td className="px-4 py-3 text-right text-red-500">-{formatTL(totalCost)}</td>
-                              <td className={`px-4 py-3 text-right ${isLoss ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
-                                {formatTL(breakEvenPerUnit)}
-                                {isLoss && <span className="ml-1 text-xs text-red-500">ZARAR</span>}
+                              <td className="px-4 py-3 text-right font-medium text-slate-900">
+                                <input
+                                  type="number"
+                                  value={simPrice}
+                                  onChange={e => setSimulationPrices(prev => ({ ...prev, [item.productId]: parseFloat(e.target.value) || 0 }))}
+                                  className="w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                                />
+                                {simulationPrices[item.productId] !== undefined && (
+                                  <button
+                                    onClick={() => applySimulationPrice(item.productId)}
+                                    className="ml-1 px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded hover:bg-green-200"
+                                    title="Apply as product price"
+                                  >
+                                    ✓
+                                  </button>
+                                )}
                               </td>
-                              <td className="px-4 py-3 text-right font-medium text-blue-600">{formatTL(calc.revenue)}</td>
-                              <td className={`px-4 py-3 text-right font-bold ${netProfitToShow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {formatTL(netProfitToShow)}
+                              <td className={`px-4 py-3 text-right font-medium ${isSimLoss ? 'text-red-600 line-through' : 'text-slate-900'}`}>
+                                {formatTL(product.salePriceTL)}
+                              </td>
+                              <td className="px-4 py-3 text-right text-red-500">-{formatTL(calc.totalCost)}</td>
+                              <td className={`px-4 py-3 text-right ${isSimLoss ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
+                                {formatTL(simBreakEven)}
+                                {isSimLoss && <span className="ml-1 text-xs text-red-500">ZARAR</span>}
+                              </td>
+                              <td className={`px-4 py-3 text-right font-medium ${isSimLoss ? 'text-red-600' : 'text-blue-600'}`}>{formatTL(simRevenue)}</td>
+                              <td className={`px-4 py-3 text-right font-bold ${simProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatTL(simProfit)}
+                                <div className={`text-xs ${simMargin >= 20 ? 'text-green-500' : simMargin >= 10 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                  %{simMargin.toFixed(1)}
+                                </div>
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <button 
