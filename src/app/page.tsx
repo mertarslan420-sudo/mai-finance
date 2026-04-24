@@ -5,9 +5,19 @@ import { PRODUCTS, calculateProfitBreakdown, calculateNetProfit, formatTL, getRo
 import { BasketItem, OrderCosts, Product } from '../types';
 
 type Tab = 'products' | 'order' | 'dashboard';
+type Channel = 'amazon' | 'trendyol' | 'bayi' | 'custom';
+
+const CHANNEL_RATES = {
+  amazon: { commission: 0.18, label: 'Amazon', ads: 0.05 },
+  trendyol: { commission: 0.15, label: 'Trendyol', ads: 0.03 },
+  bayi: { commission: 0.25, label: 'Bayi', ads: 0 },
+  custom: { commission: 0.18, label: 'Custom', ads: 0.05 }
+};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [channel, setChannel] = useState<Channel>('amazon');
+  const [customCommission, setCustomCommission] = useState(18);
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mai_products');
@@ -46,6 +56,11 @@ export default function Home() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Get current channel commission rate
+  const getChannelCommission = () => channel === 'custom' ? customCommission / 100 : CHANNEL_RATES[channel].commission;
+  const getChannelAds = () => channel === 'custom' ? 0.05 : CHANNEL_RATES[channel].ads;
+  const getChannelLabel = () => channel === 'custom' ? `Custom (${customCommission}%)` : CHANNEL_RATES[channel].label;
+
   // Persist to localStorage
   useEffect(() => { localStorage.setItem('mai_products', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('mai_basket', JSON.stringify(basket)); }, [basket]);
@@ -54,7 +69,7 @@ export default function Home() {
 
   // Calculate totals with VAT option
   const totals = basket.reduce((acc, item) => {
-    const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products);
+    const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
     return {
       totalCost: acc.totalCost + calc.landedCost + (calc.extraCostPerUnit * item.quantity),
       expectedRevenue: acc.expectedRevenue + calc.revenue,
@@ -122,6 +137,7 @@ export default function Home() {
     // Summary
     rows.push('');
     rows.push('SUMMARY');
+    rows.push(`Channel,${getChannelLabel()}`);
     rows.push(`Total Cost,${totals.totalCost}`);
     rows.push(`Expected Revenue,${totals.expectedRevenue}`);
     rows.push(`Net Profit,${totals.expectedProfit}`);
@@ -170,8 +186,8 @@ export default function Home() {
           <p className="text-sm text-slate-400">Warsun Distributor Panel</p>
         </div>
         <div className="text-sm text-slate-400">
-          Kur: 44 TL/USD | Komisyon: %18 | Reklam: %5
-        </div>
+                  Kanal: <span className="text-yellow-400 font-medium">{getChannelLabel()}</span> | Kur: 44 TL/USD
+                </div>
       </header>
 
       {/* Tabs */}
@@ -197,6 +213,35 @@ export default function Home() {
         {/* DASHBOARD TAB */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
+            {/* Channel Selector */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex items-center gap-4">
+              <span className="text-sm font-medium text-slate-700">Kanal:</span>
+              <div className="flex gap-2">
+                {(['amazon', 'trendyol', 'bayi', 'custom'] as Channel[]).map(ch => (
+                  <button
+                    key={ch}
+                    onClick={() => setChannel(ch)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${channel === ch ? 'bg-yellow-500 text-slate-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    {CHANNEL_RATES[ch].label}
+                  </button>
+                ))}
+              </div>
+              {channel === 'custom' && (
+                <div className="flex items-center gap-2 ml-4">
+                  <span className="text-sm text-slate-500">Komisyon:</span>
+                  <input
+                    type="number"
+                    value={customCommission}
+                    onChange={e => setCustomCommission(parseFloat(e.target.value) || 0)}
+                    className="w-16 px-2 py-1 border border-slate-300 rounded text-sm"
+                  />
+                  <span className="text-sm text-slate-500">%</span>
+                </div>
+              )}
+              <span className="text-sm text-slate-400 ml-auto">Komisyon: {Math.round(getChannelCommission() * 100)}% | Reklam: {Math.round(getChannelAds() * 100)}%</span>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid grid-cols-4 gap-4">
               <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -232,7 +277,7 @@ export default function Home() {
                   {(() => {
                     const productStats = basket.map(item => {
                       const product = products.find(p => p.id === item.productId);
-                      const calc = calculateProfitBreakdown(item, costs, 0, products);
+                      const calc = calculateProfitBreakdown(item, costs, 0, products, getChannelCommission(), getChannelAds());
                       return {
                         product,
                         profit: calc.netProfit,
@@ -333,7 +378,7 @@ export default function Home() {
                 <tbody className="divide-y divide-slate-200">
                   {products.map(p => {
                     const item = { productId: p.id, quantity: 1 };
-                    const calc = calculateProfitBreakdown(item, { shipping: 0, customs: 0, inland: 0, other: 0 }, showVAT ? vatRate : 0, products);
+                    const calc = calculateProfitBreakdown(item, { shipping: 0, customs: 0, inland: 0, other: 0 }, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
                     const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
                     const marginToShow = showVAT ? calc.marginAfterVAT : calc.margin;
                     
@@ -614,10 +659,10 @@ export default function Home() {
                         {basket.map(item => {
                           const product = products.find(p => p.id === item.productId);
                           if (!product) return null;
-                          const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products);
+                          const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
                           const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
                           const totalCost = calc.landedCost + (calc.extraCostPerUnit * item.quantity);
-                          const breakEvenPerUnit = calc.landedCost / (1 - 0.18 - 0.05);
+                          const breakEvenPerUnit = calc.landedCost / (1 - getChannelCommission() - getChannelAds());
                           const isLoss = product.salePriceTL < breakEvenPerUnit;
                           
                           return (

@@ -31,7 +31,7 @@ export interface ProfitBreakdown {
   vatAmount: number;
 }
 
-export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, vatRate: number = 0, productList?: Product[]): ProfitBreakdown {
+export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, vatRate: number = 0, productList?: Product[], commissionRate: number = COMMISSION_RATE, adsRate: number = ADS_RATE): ProfitBreakdown {
   const product = getProduct(item.productId, productList);
   if (!product) {
     return { revenue: 0, baseCost: 0, landedCost: 0, extraCostPerUnit: 0, totalCost: 0, commission: 0, adsCost: 0, netProfit: 0, margin: 0, marginAfterVAT: 0, vatAmount: 0 };
@@ -61,8 +61,8 @@ export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, va
   const totalCost = (landedCostPerUnit * quantity) + (orderLevelPerUnit * quantity);
 
   // Commissions and ads
-  const commission = revenue * COMMISSION_RATE;
-  const adsCost = revenue * ADS_RATE;
+  const commission = revenue * commissionRate;
+  const adsCost = revenue * adsRate;
 
   // Net profit
   const netProfit = revenue - commission - adsCost - totalCost;
