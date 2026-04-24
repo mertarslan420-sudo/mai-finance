@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PRODUCTS, calculateProfitBreakdown, calculateNetProfit, formatTL, getRoleBadgeColor } from '../lib/data';
 import { BasketItem, OrderCosts, Product } from '../types';
 
@@ -8,13 +8,46 @@ type Tab = 'products' | 'order' | 'dashboard';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [basket, setBasket] = useState<BasketItem[]>([]);
-  const [costs, setCosts] = useState<OrderCosts>({ shipping: 0, customs: 0, inland: 0, other: 0 });
-  const [vatRate, setVatRate] = useState<number>(0); // 0 = no VAT
-  const [showVAT, setShowVAT] = useState<boolean>(false);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_products');
+      return saved ? JSON.parse(saved) : PRODUCTS;
+    }
+    return PRODUCTS;
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Load from localStorage
+  const [basket, setBasket] = useState<BasketItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_basket');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [costs, setCosts] = useState<OrderCosts>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_costs');
+      return saved ? JSON.parse(saved) : { shipping: 0, customs: 0, inland: 0, other: 0 };
+    }
+    return { shipping: 0, customs: 0, inland: 0, other: 0 };
+  });
+  const [vatRate, setVatRate] = useState<number>(0);
+  const [showVAT, setShowVAT] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_showVat');
+      return saved ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
+
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  // Persist to localStorage
+  useEffect(() => { localStorage.setItem('mai_products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('mai_basket', JSON.stringify(basket)); }, [basket]);
+  useEffect(() => { localStorage.setItem('mai_costs', JSON.stringify(costs)); }, [costs]);
+  useEffect(() => { localStorage.setItem('mai_showVat', JSON.stringify(showVAT)); }, [showVAT]);
 
   // Calculate totals with VAT option
   const totals = basket.reduce((acc, item) => {
