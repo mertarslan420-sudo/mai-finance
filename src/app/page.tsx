@@ -90,6 +90,52 @@ export default function Home() {
     setBasket(prev => prev.filter(i => i.productId !== productId));
   };
 
+  const handleCSVExport = () => {
+    const rows: string[] = [];
+    
+    // Products section
+    rows.push('PRODUCTS');
+    rows.push('Model,Role,Cost USD,Sale TL,Commission %,Ads %');
+    products.forEach(p => {
+rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},18,5`);
+    });
+    
+    // Basket section
+    rows.push('');
+    rows.push('BASKET');
+    rows.push('Product,Quantity');
+    basket.forEach(item => {
+      const product = products.find(p => p.id === item.productId);
+      rows.push(`${product?.model || item.productId},${item.quantity}`);
+    });
+    
+    // Order costs section
+    rows.push('');
+    rows.push('ORDER COSTS');
+    rows.push(`Shipping USD,${costs.shipping}`);
+    rows.push(`Customs USD,${costs.customs}`);
+    rows.push(`Inland TL,${costs.inland}`);
+    rows.push(`Other TL,${costs.other}`);
+    rows.push(`KDV Mode,${showVAT ? ' Dahil' : 'Hariç'}`);
+    
+    // Summary
+    rows.push('');
+    rows.push('SUMMARY');
+    rows.push(`Total Cost,${totals.totalCost}`);
+    rows.push(`Expected Revenue,${totals.expectedRevenue}`);
+    rows.push(`Net Profit,${totals.expectedProfit}`);
+    rows.push(`Avg Margin %,${avgMargin.toFixed(1)}`);
+    
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mai-export-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleAddProduct = () => {
     if (!newProduct.model || newProduct.costUSD <= 0 || newProduct.salePriceTL <= 0) return;
     const id = 'p' + Date.now();
@@ -182,6 +228,7 @@ export default function Home() {
               <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                 <h2 className="font-semibold text-slate-900">Ürün Marjları</h2>
                 <div className="flex items-center gap-4">
+                  <button onClick={handleCSVExport} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500">CSV Export</button>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={showVAT} onChange={e => setShowVAT(e.target.checked)} className="rounded" />
                     <span>KDV Göster</span>
