@@ -13,8 +13,8 @@ export const PRODUCTS: Product[] = [
   { id: 'eb05', model: 'EB05', costUSD: 7.0, salePriceTL: 1299, role: 'WEAK', shippingCost: 0.6, customsCost: 1.3, packagingCost: 0.35 },
 ];
 
-export function getProduct(id: string): Product | undefined {
-  return PRODUCTS.find(p => p.id === id);
+export function getProduct(id: string, productList: Product[] = PRODUCTS): Product | undefined {
+  return productList.find(p => p.id === id);
 }
 
 export interface ProfitBreakdown {
@@ -31,8 +31,8 @@ export interface ProfitBreakdown {
   vatAmount: number;
 }
 
-export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, vatRate: number = 0): ProfitBreakdown {
-  const product = getProduct(item.productId);
+export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, vatRate: number = 0, productList?: Product[]): ProfitBreakdown {
+  const product = getProduct(item.productId, productList);
   if (!product) {
     return { revenue: 0, baseCost: 0, landedCost: 0, extraCostPerUnit: 0, totalCost: 0, commission: 0, adsCost: 0, netProfit: 0, margin: 0, marginAfterVAT: 0, vatAmount: 0 };
   }
@@ -48,9 +48,9 @@ export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, va
 
   // Landed cost per unit (base + all per-unit import costs)
   const landedCostPerUnit = baseCost
-    + (product.shippingCost * DEFAULT_EXCHANGE_RATE)
-    + (product.customsCost * DEFAULT_EXCHANGE_RATE)
-    + (product.packagingCost * DEFAULT_EXCHANGE_RATE);
+    + ((product.shippingCost || 0) * DEFAULT_EXCHANGE_RATE)
+    + ((product.customsCost || 0) * DEFAULT_EXCHANGE_RATE)
+    + ((product.packagingCost || 0) * DEFAULT_EXCHANGE_RATE);
 
   // Order-level costs distributed per unit
   const orderLevelPerUnit = quantity > 0

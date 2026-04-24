@@ -15,7 +15,6 @@ export default function Home() {
     }
     return PRODUCTS;
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Load from localStorage
   const [basket, setBasket] = useState<BasketItem[]>(() => {
@@ -55,7 +54,7 @@ export default function Home() {
 
   // Calculate totals with VAT option
   const totals = basket.reduce((acc, item) => {
-    const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0);
+    const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products);
     return {
       totalCost: acc.totalCost + calc.landedCost + (calc.extraCostPerUnit * item.quantity),
       expectedRevenue: acc.expectedRevenue + calc.revenue,
@@ -260,7 +259,7 @@ export default function Home() {
                 <tbody className="divide-y divide-slate-200">
                   {products.map(p => {
                     const item = { productId: p.id, quantity: 1 };
-                    const calc = calculateProfitBreakdown(item, { shipping: 0, customs: 0, inland: 0, other: 0 }, showVAT ? vatRate : 0);
+                    const calc = calculateProfitBreakdown(item, { shipping: 0, customs: 0, inland: 0, other: 0 }, showVAT ? vatRate : 0, products);
                     const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
                     const marginToShow = showVAT ? calc.marginAfterVAT : calc.margin;
                     
@@ -541,7 +540,7 @@ export default function Home() {
                         {basket.map(item => {
                           const product = products.find(p => p.id === item.productId);
                           if (!product) return null;
-                          const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0);
+                          const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products);
                           const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
                           const totalCost = calc.landedCost + (calc.extraCostPerUnit * item.quantity);
                           const breakEvenPerUnit = calc.landedCost / (1 - 0.18 - 0.05);
