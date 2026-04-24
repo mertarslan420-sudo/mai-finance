@@ -95,9 +95,11 @@ export default function Home() {
     
     // Products section
     rows.push('PRODUCTS');
-    rows.push('Model,Role,Cost USD,Sale TL,Commission %,Ads %');
+    rows.push('Model,Role,Cost USD,Sale TL,Break-even');
     products.forEach(p => {
-rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},18,5`);
+      const landed = p.costUSD * 44 * 1.057;
+      const breakEven = landed / (1 - 0.18 - 0.05);
+      rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},${breakEven.toFixed(2)}`);
     });
     
     // Basket section
@@ -527,6 +529,7 @@ rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},18,5`);
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Landed Cost</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Satış</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Toplam Maliyet</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Break-even</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Beklenen Ciro</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Net Kâr</th>
                           <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">
@@ -541,9 +544,11 @@ rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},18,5`);
                           const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0);
                           const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
                           const totalCost = calc.landedCost + (calc.extraCostPerUnit * item.quantity);
+                          const breakEvenPerUnit = calc.landedCost / (1 - 0.18 - 0.05);
+                          const isLoss = product.salePriceTL < breakEvenPerUnit;
                           
                           return (
-                            <tr key={item.productId} className="hover:bg-slate-50">
+                            <tr key={item.productId} className={isLoss ? 'bg-red-50' : 'hover:bg-slate-50'}>
                               <td className="px-4 py-3">
                                 <div className="font-medium text-slate-900">{product.model}</div>
                                 <div className="text-xs text-slate-400">${product.costUSD}/unit</div>
@@ -561,6 +566,10 @@ rows.push(`${p.model},${p.role},${p.costUSD},${p.salePriceTL},18,5`);
                               <td className="px-4 py-3 text-right text-slate-600">{formatTL(calc.landedCost)}</td>
                               <td className="px-4 py-3 text-right font-medium text-slate-900">{formatTL(product.salePriceTL)}</td>
                               <td className="px-4 py-3 text-right text-red-500">-{formatTL(totalCost)}</td>
+                              <td className={`px-4 py-3 text-right ${isLoss ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
+                                {formatTL(breakEvenPerUnit)}
+                                {isLoss && <span className="ml-1 text-xs text-red-500">ZARAR</span>}
+                              </td>
                               <td className="px-4 py-3 text-right font-medium text-blue-600">{formatTL(calc.revenue)}</td>
                               <td className={`px-4 py-3 text-right font-bold ${netProfitToShow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {formatTL(netProfitToShow)}
