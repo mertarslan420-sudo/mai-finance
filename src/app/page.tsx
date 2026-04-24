@@ -668,7 +668,7 @@ export default function Home() {
             </div>
 
             {/* Summary Cards */}
-            <div className={`grid grid-cols-4 gap-4 ${basket.length === 0 ? 'opacity-50' : ''}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${basket.length === 0 ? 'opacity-50' : ''}`}>
               <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                 <div className="text-sm text-slate-500 mb-1">Toplam Yatırım</div>
                 <div className="text-2xl font-bold text-slate-900">{formatTL(totals.totalCost)}</div>
@@ -1132,7 +1132,7 @@ export default function Home() {
 
         {/* ORDER TAB */}
         {activeTab === 'order' && (
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Add Products */}
             <div className="col-span-2 space-y-4">
               {/* Purchase Decision Helper */}
@@ -1208,7 +1208,7 @@ export default function Home() {
                   <h2 className="font-semibold text-slate-900">Sipariş Maliyetleri</h2>
                   <p className="text-xs text-slate-400 mt-1">Shipping and Customs are USD. İç Nakliye and Diğer are TL.</p>
                 </div>
-                <div className="p-4 grid grid-cols-4 gap-4">
+                <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shipping (USD)</label>
                     <input type="number" value={costs.shipping} onChange={e => isAdmin && setCosts({ ...costs, shipping: parseFloat(e.target.value) || 0 })} disabled={!isAdmin} className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:opacity-50" />
