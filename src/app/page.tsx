@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PRODUCTS, calculateProfitBreakdown, calculateNetProfit, formatTL, getRoleBadgeColor } from '../lib/data';
 import { BasketItem, OrderCosts, Product } from '../types';
+import * as XLSX from 'xlsx';
 
 type Tab = 'products' | 'order' | 'dashboard' | 'stok';
 type Channel = 'amazon' | 'trendyol' | 'bayi' | 'custom';
@@ -221,6 +222,60 @@ export default function Home() {
     a.download = `mai-export-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExcelExport = () => {
+    // Sheet 1: Basket Detail
+    const basketData = basket.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      if (!product) return null;
+      const simPrice = getSimPrice(item.productId, product.salePriceTL);
+      const calc = calculateProfitBreakdown({ ...item }, costs, 0, products, getChannelCommission(), getChannelAds());
+      const simPriceExclVAT = showVAT && vatRate > 0 ? simPrice / (1 + vatRate) : simPrice;
+      const simRevenue = simPriceExclVAT * item.quantity;
+      const simCommission = simRevenue * getChannelCommission();
+      const simAds = simRevenue * getChannelAds();
+      const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
+      const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
+      const simBreakEven = calc.landedCostPerUnit / (1 - getChannelCommission() - getChannelAds());
+      const isLoss = simPriceExclVAT < simBreakEven;
+      return {
+        'Ürün': product.model,
+        'Rol': product.role,
+        'Adet': item.quantity,
+        'Base Cost': calc.baseCost.toFixed(2),
+        'Landed Cost': calc.landedCost.toFixed(2),
+        'Satış Fiyatı': product.salePriceTL,
+        'Simülasyon Fiyatı': simPrice,
+        'Toplam Maliyet': calc.totalCost.toFixed(2),
+        'Beklenen Ciro': simRevenue.toFixed(2),
+        'Net Kâr': simProfit.toFixed(2),
+        'Marj %': simMargin.toFixed(1),
+        'Break-even': simBreakEven.toFixed(2),
+        'Durum': isLoss ? 'ZARAR' : ''
+      };
+    }).filter(Boolean);
+
+    // Sheet 2: Summary
+    const summaryData = [
+      { 'Metrik': 'Toplam Ünite', 'Değer': totalUnits },
+      { 'Metrik': 'Toplam Maliyet', 'Değer': totals.totalCost.toFixed(2) },
+      { 'Metrik': 'Beklenen Ciro', 'Değer': totals.expectedRevenue.toFixed(2) },
+      { 'Metrik': 'Net Kâr', 'Değer': totals.expectedProfit.toFixed(2) },
+      { 'Metrik': 'Marj %', 'Değer': avgMargin.toFixed(1) },
+      { 'Metrik': 'Kanal', 'Değer': getChannelLabel() },
+      { 'Metrik': 'KDV Modu', 'Değer': showVAT ? 'KDV Dahil' : 'KDV Hariç' },
+      { 'Metrik': 'Toplam Komisyon', 'Değer': totals.totalCommission.toFixed(2) },
+      { 'Metrik': 'Toplam Reklam', 'Değer': totals.totalAds.toFixed(2) },
+      { 'Metrik': 'KDV Tutarı', 'Değer': totals.totalVAT.toFixed(2) }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(basketData);
+    const ws2 = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Sepet');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Özet');
+    XLSX.writeFile(wb, 'mai_finance_basket_export.xlsx');
   };
 
   const handleAddProduct = () => {
@@ -543,6 +598,7 @@ export default function Home() {
                 <h2 className="font-semibold text-slate-900">Ürün Marjları</h2>
                 <div className="flex items-center gap-4">
                   <button onClick={handleCSVExport} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500">CSV Export</button>
+                  <button onClick={handleExcelExport} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500">Excel İndir</button>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={showVAT} onChange={e => setShowVAT(e.target.checked)} className="rounded" />
                     <span>KDV Göster</span>
