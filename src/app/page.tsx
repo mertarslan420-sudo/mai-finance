@@ -44,6 +44,8 @@ export default function Home() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showProductModal, setShowProductModal] = useState(false);
   const [newProduct, setNewProduct] = useState<{ model: string; role: string; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // Persist to localStorage
   useEffect(() => { localStorage.setItem('mai_products', JSON.stringify(products)); }, [products]);
@@ -94,6 +96,22 @@ export default function Home() {
     setProducts(prev => [...prev, { ...newProduct, id, shippingCost: 0, customsCost: 0, packagingCost: 0 }]);
     setNewProduct({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
     setShowProductModal(false);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingProduct) return;
+    setProducts(prev => prev.map(p => p.id === editingProduct.id ? editingProduct : p));
+    setEditingProduct(null);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    if (productId === 't7') return;
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    setDeleteConfirm(null);
   };
 
   return (
@@ -227,6 +245,37 @@ export default function Home() {
         {/* PRODUCTS TAB */}
         {activeTab === 'products' && (
           <>
+            {editingProduct && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
+                  <h3 className="text-lg font-semibold mb-4">Ürün Düzenle</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Model</label>
+                      <input type="text" value={editingProduct.model} onChange={e => setEditingProduct({ ...editingProduct, model: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+                      <input type="text" value={editingProduct.role} onChange={e => setEditingProduct({ ...editingProduct, role: e.target.value.toUpperCase() })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Maliyet (USD)</label>
+                        <input type="number" value={editingProduct.costUSD || ''} onChange={e => setEditingProduct({ ...editingProduct, costUSD: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Satış (TL)</label>
+                        <input type="number" value={editingProduct.salePriceTL || ''} onChange={e => setEditingProduct({ ...editingProduct, salePriceTL: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-6">
+                    <button onClick={handleSaveEdit} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500">Kaydet</button>
+                    <button onClick={() => setEditingProduct(null)} className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">İptal</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {showProductModal && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-xl p-6 w-96 shadow-xl">
@@ -328,8 +377,17 @@ export default function Home() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1">Düzenle</button>
-                        {p.id !== 't7' && <button className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded">Sil</button>}
+                        <button onClick={() => handleEditProduct(p)} className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1">Düzenle</button>
+                        {p.id !== 't7' && (
+                          deleteConfirm === p.id ? (
+                            <>
+                              <button onClick={() => handleDeleteProduct(p.id)} className="px-3 py-1 bg-red-600 text-white text-sm rounded mr-1">Sil</button>
+                              <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setDeleteConfirm(p.id)} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded">Sil</button>
+                          )
+                        )}
                       </td>
                     </tr>
                   );
