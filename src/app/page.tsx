@@ -532,15 +532,15 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 w-96">
-          <h1 className="text-2xl font-bold text-center text-yellow-500 mb-2">MAI Finance</h1>
-          <p className="text-center text-slate-500 mb-6">Giriş yapın</p>
+          <h1 className="text-2xl font-bold text-center text-yellow-500 mb-1">MAI Finance</h1>
+          <p className="text-center text-slate-400 text-sm mb-6">Distributor Finance & Profitability Panel</p>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
               <input
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => { setPassword(e.target.value); setLoginError(''); }}
                 onKeyDown={e => e.key === 'Enter' && handleLogin('admin')}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 placeholder="Şifreyi girin"
@@ -557,12 +557,9 @@ export default function Home() {
               onClick={() => handleLogin('investor')}
               className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300"
             >
-              Yatırımcı Girişi (Sadece Görüntüle)
+              Yatırımcı Girişi
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-4 text-center">
-            Admin: admin123 | Yatırımcı: investor123
-          </p>
         </div>
       </div>
     );
