@@ -56,6 +56,14 @@ export default function Home() {
     sessionStorage.removeItem('mai_role');
   };
 
+  const requireAdmin = (action: string = 'Bu işlem') => {
+    if (!isAdmin) {
+      alert(`${action} için yetkiniz yok`);
+      return false;
+    }
+    return true;
+  };
+
   const isAdmin = userRole === 'admin';
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [channel, setChannel] = useState<Channel>('amazon');
@@ -184,6 +192,7 @@ export default function Home() {
   const avgMargin = totals.expectedRevenue > 0 ? (totals.expectedProfit / totals.expectedRevenue) * 100 : 0;
 
   const addToBasket = (productId: string) => {
+    if (!requireAdmin('Sepete ürün ekleme')) return;
     const qty = quantities[productId] || 0;
     if (qty <= 0) return;
     
@@ -201,10 +210,12 @@ export default function Home() {
   };
 
   const removeFromBasket = (productId: string) => {
+    if (!requireAdmin('Sepetten ürün çıkarma')) return;
     setBasket(prev => prev.filter(i => i.productId !== productId));
   };
 
   const confirmStockOrder = () => {
+    if (!requireAdmin('Stok aktarma')) return;
     if (basket.length === 0) return;
     // Add basket quantities to incoming stock
     setInventory(prev => {
@@ -222,6 +233,7 @@ export default function Home() {
   };
 
   const saveOrder = () => {
+    if (!requireAdmin('Sipariş kaydetme')) return;
     if (basket.length === 0) return;
     const order = {
       id: 'ord_' + Date.now(),
@@ -242,6 +254,7 @@ export default function Home() {
   };
 
   const restoreOrder = (orderId: string) => {
+    if (!requireAdmin('Sipariş geri yükleme')) return;
     const order = savedOrders.find(o => o.id === orderId);
     if (!order) return;
     if (!window.confirm('Mevcut sepet değiştirilecek. Devam etmek istiyor musunuz?')) return;
@@ -254,6 +267,7 @@ export default function Home() {
   };
 
   const deleteOrder = (orderId: string) => {
+    if (!requireAdmin('Sipariş silme')) return;
     if (!window.confirm('Sipariş silinecek. Emin misiniz?')) return;
     setSavedOrders(prev => prev.filter(o => o.id !== orderId));
   };
@@ -396,6 +410,7 @@ export default function Home() {
   };
 
   const handleAddProduct = () => {
+    if (!requireAdmin('Ürün ekleme')) return;
     if (!newProduct.model || newProduct.costUSD <= 0 || newProduct.salePriceTL <= 0) return;
     const id = 'p' + Date.now();
     setProducts(prev => [...prev, { ...newProduct, id, shippingCost: 0, customsCost: 0, packagingCost: 0 }]);
@@ -404,22 +419,26 @@ export default function Home() {
   };
 
   const handleEditProduct = (product: Product) => {
+    if (!requireAdmin('Ürün düzenleme')) return;
     setEditingProduct(product);
   };
 
   const handleSaveEdit = () => {
+    if (!requireAdmin('Ürün kaydetme')) return;
     if (!editingProduct) return;
     setProducts(prev => prev.map(p => p.id === editingProduct.id ? editingProduct : p));
     setEditingProduct(null);
   };
 
   const handleDeleteProduct = (productId: string) => {
+    if (!requireAdmin('Ürün silme')) return;
     if (productId === 't7') return;
     setProducts(prev => prev.filter(p => p.id !== productId));
     setDeleteConfirm(null);
   };
 
   const applySimulationPrice = (productId: string) => {
+    if (!requireAdmin('Fiyat uygulama')) return;
     const simPrice = simulationPrices[productId];
     if (simPrice === undefined) return;
     if (!window.confirm('Simülasyon fiyatı ürün fiyatına uygulanacak. Emin misiniz?')) return;
@@ -435,17 +454,20 @@ export default function Home() {
   };
 
   const clearBasket = () => {
+    if (!requireAdmin('Sepet temizleme')) return;
     setBasket([]);
     setSimulationPrices({});
     setResetConfirm(null);
   };
 
   const clearInventory = () => {
+    if (!requireAdmin('Envanter temizleme')) return;
     setInventory({});
     setResetConfirm(null);
   };
 
   const resetAllData = () => {
+    if (!requireAdmin('Veri sıfırlama')) return;
     setProducts(PRODUCTS);
     setBasket([]);
     setCosts({ shipping: 0, customs: 0, inland: 0, other: 0 });
@@ -481,6 +503,7 @@ export default function Home() {
   };
 
   const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!requireAdmin('Yedek yükleme')) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (!window.confirm('Mevcut veriler yedeğinizle değiştirilecek. Devam etmek istiyor musunuz?')) return;
