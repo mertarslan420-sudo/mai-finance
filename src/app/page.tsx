@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 
 type Tab = 'products' | 'order' | 'dashboard' | 'stok' | 'orders';
 type Channel = 'amazon' | 'trendyol' | 'bayi' | 'custom';
+type Role = 'admin' | 'investor';
 
 const CHANNEL_RATES = {
   amazon: { commission: 0.18, label: 'Amazon', ads: 0.05 },
@@ -16,6 +17,46 @@ const CHANNEL_RATES = {
 };
 
 export default function Home() {
+  // Login state
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('mai_role') !== null;
+    }
+    return false;
+  });
+  const [userRole, setUserRole] = useState<Role>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('mai_role');
+      return (saved as Role) || 'investor';
+    }
+    return 'investor';
+  });
+  const [loginError, setLoginError] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleLogin = (role: Role) => {
+    if (role === 'admin' && password !== 'admin123') {
+      setLoginError('Yanlış şifre');
+      return;
+    }
+    if (role === 'investor' && password !== 'investor123') {
+      setLoginError('Yanlış şifre');
+      return;
+    }
+    setUserRole(role);
+    setIsLoggedIn(true);
+    sessionStorage.setItem('mai_role', role);
+    setLoginError('');
+    setPassword('');
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserRole('investor');
+    sessionStorage.removeItem('mai_role');
+  };
+
+  const isAdmin = userRole === 'admin';
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [channel, setChannel] = useState<Channel>('amazon');
   const [customCommission, setCustomCommission] = useState(18);
@@ -463,6 +504,47 @@ export default function Home() {
     e.target.value = '';
   };
 
+  // Login Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 w-96">
+          <h1 className="text-2xl font-bold text-center text-yellow-500 mb-2">MAI Finance</h1>
+          <p className="text-center text-slate-500 mb-6">Giriş yapın</p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin('admin')}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                placeholder="Şifreyi girin"
+              />
+            </div>
+            {loginError && <p className="text-red-500 text-sm">{loginError}</p>}
+            <button
+              onClick={() => handleLogin('admin')}
+              className="w-full px-4 py-2 bg-yellow-500 text-slate-900 rounded-lg font-medium hover:bg-yellow-400"
+            >
+              Admin Girişi
+            </button>
+            <button
+              onClick={() => handleLogin('investor')}
+              className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300"
+            >
+              Yatırımcı Girişi (Sadece Görüntüle)
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-4 text-center">
+            Admin: admin123 | Yatırımcı: investor123
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Header */}
@@ -471,9 +553,12 @@ export default function Home() {
           <h1 className="text-xl font-bold text-yellow-400">MAI Finance</h1>
           <p className="text-sm text-slate-400">Warsun Distributor Panel</p>
         </div>
-        <div className="text-sm text-slate-400">
-                  Kanal: <span className="text-yellow-400 font-medium">{getChannelLabel()}</span> | Kur: 44 TL/USD
-                </div>
+        <div className="flex items-center gap-4">
+          <span className={`px-2 py-1 rounded text-xs font-medium ${isAdmin ? 'bg-yellow-500 text-slate-900' : 'bg-slate-600 text-white'}`}>
+            {isAdmin ? 'Admin' : 'Yatırımcı'}
+          </span>
+          <button onClick={handleLogout} className="text-sm text-slate-400 hover:text-white">Çıkış</button>
+        </div>
       </header>
 
       {/* Tabs */}
@@ -548,13 +633,15 @@ export default function Home() {
                 ) : (
                   <>
                     <button onClick={handleBackup} className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-500">Yedek Al</button>
-                    <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 cursor-pointer">
-                      Yedekten Yükle
-                      <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
-                    </label>
-                    <button onClick={() => setResetConfirm('basket')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Sepeti Temizle</button>
-                    <button onClick={() => setResetConfirm('inventory')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Envanteri Temizle</button>
-                    <button onClick={() => setResetConfirm('all')} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200">Tüm Verileri Sıfırla</button>
+                    {isAdmin && (
+                      <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 cursor-pointer">
+                        Yedekten Yükle
+                        <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
+                      </label>
+                    )}
+                    {isAdmin && <button onClick={() => setResetConfirm('basket')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Sepeti Temizle</button>}
+                    {isAdmin && <button onClick={() => setResetConfirm('inventory')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Envanteri Temizle</button>}
+                    {isAdmin && <button onClick={() => setResetConfirm('all')} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200">Tüm Verileri Sıfırla</button>}
                   </>
                 )}
               </div>
@@ -837,18 +924,22 @@ export default function Home() {
                         <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs">{order.channel}</span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => restoreOrder(order.id)}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1 hover:bg-blue-500"
-                        >
-                          Geri Yükle
-                        </button>
-                        <button
-                          onClick={() => deleteOrder(order.id)}
-                          className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200"
-                        >
-                          Sil
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => restoreOrder(order.id)}
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1 hover:bg-blue-500"
+                          >
+                            Geri Yükle
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => deleteOrder(order.id)}
+                            className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200"
+                          >
+                            Sil
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -943,7 +1034,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="flex gap-2 mt-6">
-                    <button onClick={handleAddProduct} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500">Ekle</button>
+                    <button onClick={handleAddProduct} disabled={!isAdmin} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50">Ekle</button>
                     <button onClick={() => setShowProductModal(false)} className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">İptal</button>
                   </div>
                 </div>
@@ -954,8 +1045,9 @@ export default function Home() {
               <h2 className="font-semibold text-slate-900">Ürün Yönetimi</h2>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setShowProductModal(true)}
-                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500"
+                  onClick={() => isAdmin && setShowProductModal(true)}
+                  disabled={!isAdmin}
+                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   + Yeni Ürün
                 </button>
@@ -993,15 +1085,19 @@ export default function Home() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleEditProduct(p)} className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1">Düzenle</button>
-                        {p.id !== 't7' && (
-                          deleteConfirm === p.id ? (
-                            <>
-                              <button onClick={() => handleDeleteProduct(p.id)} className="px-3 py-1 bg-red-600 text-white text-sm rounded mr-1">Sil</button>
-                              <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
-                            </>
-                          ) : (
-                            <button onClick={() => setDeleteConfirm(p.id)} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded">Sil</button>
+                        {isAdmin && (
+                          <button onClick={() => handleEditProduct(p)} className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1">Düzenle</button>
+                        )}
+                        {isAdmin && (
+                          p.id !== 't7' && (
+                            deleteConfirm === p.id ? (
+                              <>
+                                <button onClick={() => handleDeleteProduct(p.id)} className="px-3 py-1 bg-red-600 text-white text-sm rounded mr-1">Sil</button>
+                                <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
+                              </>
+                            ) : (
+                              <button onClick={() => setDeleteConfirm(p.id)} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded">Sil</button>
+                            )
                           )
                         )}
                       </td>
@@ -1069,12 +1165,14 @@ export default function Home() {
                           min="0"
                           placeholder="Adet"
                           value={quantities[p.id] || ''}
-                          onChange={e => setQuantities({ ...quantities, [p.id]: parseInt(e.target.value) || 0 })}
-                          className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-center"
+                          onChange={e => isAdmin && setQuantities({ ...quantities, [p.id]: parseInt(e.target.value) || 0 })}
+                          disabled={!isAdmin}
+                          className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-center disabled:opacity-50"
                         />
                         <button
-                          onClick={() => addToBasket(p.id)}
-                          className="px-4 py-2 bg-yellow-500 text-slate-900 rounded-lg font-medium hover:bg-yellow-400"
+                          onClick={() => isAdmin && addToBasket(p.id)}
+                          disabled={!isAdmin}
+                          className="px-4 py-2 bg-yellow-500 text-slate-900 rounded-lg font-medium hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Ekle
                         </button>
@@ -1093,19 +1191,19 @@ export default function Home() {
                 <div className="p-4 grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shipping (USD)</label>
-                    <input type="number" value={costs.shipping} onChange={e => setCosts({ ...costs, shipping: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    <input type="number" value={costs.shipping} onChange={e => isAdmin && setCosts({ ...costs, shipping: parseFloat(e.target.value) || 0 })} disabled={!isAdmin} className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:opacity-50" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Customs (USD)</label>
-                    <input type="number" value={costs.customs} onChange={e => setCosts({ ...costs, customs: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    <input type="number" value={costs.customs} onChange={e => isAdmin && setCosts({ ...costs, customs: parseFloat(e.target.value) || 0 })} disabled={!isAdmin} className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:opacity-50" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">İç Nakliye</label>
-                    <input type="number" value={costs.inland} onChange={e => setCosts({ ...costs, inland: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    <input type="number" value={costs.inland} onChange={e => isAdmin && setCosts({ ...costs, inland: parseFloat(e.target.value) || 0 })} disabled={!isAdmin} className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:opacity-50" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Diğer</label>
-                    <input type="number" value={costs.other} onChange={e => setCosts({ ...costs, other: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                    <input type="number" value={costs.other} onChange={e => isAdmin && setCosts({ ...costs, other: parseFloat(e.target.value) || 0 })} disabled={!isAdmin} className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:opacity-50" />
                   </div>
                 </div>
               </div>
@@ -1180,7 +1278,7 @@ export default function Home() {
                                     style={{ backgroundColor: '#eff6ff' }}
                                   />
                                 </div>
-                                {simulationPrices[item.productId] !== undefined && (
+                              {isAdmin && simulationPrices[item.productId] !== undefined && (
                                   <button
                                     onClick={() => applySimulationPrice(item.productId)}
                                     className="mt-1 w-full px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded hover:bg-green-200 block"
@@ -1205,12 +1303,14 @@ export default function Home() {
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-center">
-                                <button 
-                                  onClick={() => removeFromBasket(item.productId)}
-                                  className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
-                                >
-                                  ✕
-                                </button>
+                                {isAdmin && (
+                                  <button 
+                                    onClick={() => removeFromBasket(item.productId)}
+                                    className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1219,20 +1319,24 @@ export default function Home() {
                     </table>
                   </div>
                   <div className="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-                    <button
-                      onClick={confirmStockOrder}
-                      disabled={basket.length === 0}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 disabled:opacity-50"
-                    >
-                      Siparişi Stoka Aktar
-                    </button>
-                    <button
-                      onClick={saveOrder}
-                      disabled={basket.length === 0}
-                      className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 disabled:opacity-50"
-                    >
-                      Siparişi Kaydet
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={confirmStockOrder}
+                        disabled={basket.length === 0}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                      >
+                        Siparişi Stoka Aktar
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={saveOrder}
+                        disabled={basket.length === 0}
+                        className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 disabled:opacity-50"
+                      >
+                        Siparişi Kaydet
+                      </button>
+                    )}
                     {pendingStockOrder && (
                       <span className="text-sm text-green-600">✓ {pendingStockOrder.items.length} ürün stoka aktarıldı</span>
                     )}
