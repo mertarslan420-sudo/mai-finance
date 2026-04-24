@@ -250,6 +250,7 @@ export default function Home() {
   const applySimulationPrice = (productId: string) => {
     const simPrice = simulationPrices[productId];
     if (simPrice === undefined) return;
+    if (!window.confirm('Simülasyon fiyatı ürün fiyatına uygulanacak. Emin misiniz?')) return;
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, salePriceTL: simPrice } : p));
   };
 
@@ -941,20 +942,23 @@ export default function Home() {
                               </td>
                               <td className="px-4 py-3 text-right text-slate-600">{formatTL(calc.baseCost)}</td>
                               <td className="px-4 py-3 text-right text-slate-600">{formatTL(calc.landedCost)}</td>
-                              <td className="px-4 py-3 text-right font-medium text-slate-900">
-                                <input
-                                  type="number"
-                                  value={simPrice}
-                                  onChange={e => setSimulationPrices(prev => ({ ...prev, [item.productId]: parseFloat(e.target.value) || 0 }))}
-                                  className="w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right"
-                                />
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-xs text-blue-500 font-medium">Sim:</span>
+                                  <input
+                                    type="number"
+                                    value={simPrice}
+                                    onChange={e => setSimulationPrices(prev => ({ ...prev, [item.productId]: parseFloat(e.target.value) || 0 }))}
+                                    className="w-20 px-2 py-1 border border-blue-300 rounded text-sm text-right bg-blue-50"
+                                    style={{ backgroundColor: '#eff6ff' }}
+                                  />
+                                </div>
                                 {simulationPrices[item.productId] !== undefined && (
                                   <button
                                     onClick={() => applySimulationPrice(item.productId)}
-                                    className="ml-1 px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded hover:bg-green-200"
-                                    title="Apply as product price"
+                                    className="mt-1 w-full px-1 py-0.5 bg-green-100 text-green-600 text-xs rounded hover:bg-green-200 block"
                                   >
-                                    ✓
+                                    ✓ Fiyata Uygula
                                   </button>
                                 )}
                               </td>
