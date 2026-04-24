@@ -922,7 +922,7 @@ export default function Home() {
                           const simAds = simRevenue * getChannelAds();
                           const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
                           const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
-                          const simBreakEven = calc.landedCost / (1 - getChannelCommission() - getChannelAds());
+                          const simBreakEven = calc.landedCostPerUnit / (1 - getChannelCommission() - getChannelAds());
                           const isSimLoss = simPrice < simBreakEven;
                           
                           return (
