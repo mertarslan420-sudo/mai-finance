@@ -217,6 +217,20 @@ export default function Home() {
     setSavedOrders(prev => prev.filter(o => o.id !== orderId));
   };
 
+  // Purchase decision helper
+  const [budget, setBudget] = useState<number>(0);
+  const calculatePurchase = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product || budget <= 0) return null;
+    const calc = calculateProfitBreakdown({ productId, quantity: 1 }, { shipping: 0, customs: 0, inland: 0, other: 0 }, 0, products, getChannelCommission(), getChannelAds());
+    const landedCost = calc.landedCostPerUnit;
+    if (landedCost <= 0) return null;
+    const maxUnits = Math.floor(budget / landedCost);
+    const totalProfit = maxUnits * calc.netProfit;
+    const roi = (totalProfit / (maxUnits * landedCost)) * 100;
+    return { maxUnits, totalProfit, roi };
+  };
+
   const handleCSVExport = () => {
     const rows: string[] = [];
     
@@ -998,6 +1012,36 @@ export default function Home() {
           <div className="grid grid-cols-3 gap-6">
             {/* Add Products */}
             <div className="col-span-2 space-y-4">
+              {/* Purchase Decision Helper */}
+              {budget > 0 && (
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+                  <h3 className="font-semibold text-green-800 mb-3">Kaç Adet Almalısın?</h3>
+                  <div className="mb-3">
+                    <label className="text-sm text-green-700">Bütçe (TL): </label>
+                    <input
+                      type="number"
+                      value={budget || ''}
+                      onChange={e => setBudget(parseFloat(e.target.value) || 0)}
+                      className="w-32 px-2 py-1 border border-green-300 rounded text-sm ml-2"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    {products.slice(0, 4).map(p => {
+                      const result = calculatePurchase(p.id);
+                      if (!result) return null;
+                      return (
+                        <div key={p.id} className="text-sm bg-white/70 rounded p-2">
+                          <span className="font-medium text-green-800">{p.model}: </span>
+                          <span className="text-green-700">
+                            {budget.toLocaleString('tr-TR')} TL bütçeyle <strong>{result.maxUnits}</strong> adet alırsan ~<strong>{formatTL(result.totalProfit)}</strong> kâr edersin (ROI: %{result.roi.toFixed(0)})
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200">
                   <h2 className="font-semibold text-slate-900">Sepete Ürün Ekle</h2>
