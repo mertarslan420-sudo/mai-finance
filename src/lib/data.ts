@@ -39,10 +39,15 @@ export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, va
   }
 
   const { quantity } = item;
-  const salePrice = product.salePriceTL;
+  const salePriceInclVAT = product.salePriceTL;
 
-  // Revenue
-  const revenue = salePrice * quantity;
+  // If VAT is included in sale price, extract net sale price
+  const salePriceExclVAT = vatRate > 0 ? salePriceInclVAT / (1 + vatRate) : salePriceInclVAT;
+  const vatPerUnit = vatRate > 0 ? salePriceInclVAT - salePriceExclVAT : 0;
+  const totalVatAmount = vatPerUnit * quantity;
+
+  // Revenue (net of VAT)
+  const revenue = salePriceExclVAT * quantity;
 
   // Base cost (USD cost converted to TL)
   const baseCost = product.costUSD * DEFAULT_EXCHANGE_RATE;
@@ -61,19 +66,18 @@ export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, va
   // Total cost = (landedCostPerUnit * qty) + (orderLevelPerUnit * qty)
   const totalCost = (landedCostPerUnit * quantity) + (orderLevelPerUnit * quantity);
 
-  // Commissions and ads
+  // Commissions and ads (on net sale price)
   const commission = revenue * commissionRate;
   const adsCost = revenue * adsRate;
 
-  // Net profit
+  // Net profit (after VAT removal, commission, ads, and costs)
   const netProfit = revenue - commission - adsCost - totalCost;
 
   // Margin
   const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-  // VAT
-  const vatAmount = netProfit * vatRate;
-  const marginAfterVAT = revenue > 0 ? ((netProfit - vatAmount) / revenue) * 100 : 0;
+  // VAT amount is what we collected but don't keep (passed to tax authority)
+  const marginAfterVAT = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
   return {
     revenue,
@@ -87,7 +91,7 @@ export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, va
     netProfit,
     margin,
     marginAfterVAT,
-    vatAmount
+    vatAmount: totalVatAmount
   };
 }
 

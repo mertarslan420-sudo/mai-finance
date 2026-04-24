@@ -573,8 +573,6 @@ export default function Home() {
                   {products.map(p => {
                     const item = { productId: p.id, quantity: 1 };
                     const calc = calculateProfitBreakdown(item, { shipping: 0, customs: 0, inland: 0, other: 0 }, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
-                    const netProfitToShow = showVAT ? calc.netProfit - calc.vatAmount : calc.netProfit;
-                    const marginToShow = showVAT ? calc.marginAfterVAT : calc.margin;
                     
                     return (
                       <tr key={p.id} className="hover:bg-slate-50">
@@ -588,10 +586,10 @@ export default function Home() {
                         <td className="px-6 py-4 text-right text-slate-600">{formatTL(calc.landedCost)}</td>
                         <td className="px-6 py-4 text-right text-red-500">-{formatTL(calc.commission)}</td>
                         <td className="px-6 py-4 text-right text-red-500">-{formatTL(calc.adsCost)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-green-600">{formatTL(netProfitToShow)}</td>
+                        <td className="px-6 py-4 text-right font-medium text-green-600">{formatTL(calc.netProfit)}</td>
                         <td className="px-6 py-4 text-right">
-                          <span className={marginToShow >= 20 ? 'text-green-600' : marginToShow >= 10 ? 'text-yellow-600' : 'text-red-600'}>
-                            {marginToShow.toFixed(1)}%
+                          <span className={calc.margin >= 20 ? 'text-green-600' : calc.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}>
+                            {calc.margin.toFixed(1)}%
                           </span>
                         </td>
                       </tr>
@@ -915,15 +913,17 @@ export default function Home() {
                           const product = products.find(p => p.id === item.productId);
                           if (!product) return null;
                           const simPrice = getSimPrice(item.productId, product.salePriceTL);
-                          const calc = calculateProfitBreakdown({ ...item }, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
-                          // Override revenue with simulation price
-                          const simRevenue = simPrice * item.quantity;
+                          // Get base calculation for costs structure
+                          const calc = calculateProfitBreakdown({ ...item }, costs, 0, products, getChannelCommission(), getChannelAds());
+                          // If VAT included, extract net price for calculations
+                          const simPriceExclVAT = showVAT && vatRate > 0 ? simPrice / (1 + vatRate) : simPrice;
+                          const simRevenue = simPriceExclVAT * item.quantity;
                           const simCommission = simRevenue * getChannelCommission();
                           const simAds = simRevenue * getChannelAds();
                           const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
                           const simMargin = simRevenue > 0 ? (simProfit / simRevenue) * 100 : 0;
                           const simBreakEven = calc.landedCostPerUnit / (1 - getChannelCommission() - getChannelAds());
-                          const isSimLoss = simPrice < simBreakEven;
+                          const isSimLoss = simPriceExclVAT < simBreakEven;
                           
                           return (
                             <tr key={item.productId} className={isSimLoss ? 'bg-red-50' : 'hover:bg-slate-50'}>
