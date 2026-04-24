@@ -55,6 +55,7 @@ export default function Home() {
   const [newProduct, setNewProduct] = useState<{ model: string; role: string; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [resetConfirm, setResetConfirm] = useState<string | null>(null);
   const [simulationPrices, setSimulationPrices] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('mai_simulationPrices');
@@ -260,6 +261,30 @@ export default function Home() {
     });
   };
 
+  const clearBasket = () => {
+    setBasket([]);
+    setSimulationPrices({});
+    setResetConfirm(null);
+  };
+
+  const clearInventory = () => {
+    setInventory({});
+    setResetConfirm(null);
+  };
+
+  const resetAllData = () => {
+    setProducts(PRODUCTS);
+    setBasket([]);
+    setCosts({ shipping: 0, customs: 0, inland: 0, other: 0 });
+    setInventory({});
+    setChannel('amazon');
+    setSimulationPrices({});
+    setShowVAT(false);
+    setVatRate(0);
+    setPendingStockOrder(null);
+    setResetConfirm(null);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Header */}
@@ -296,8 +321,8 @@ export default function Home() {
         {/* DASHBOARD TAB */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            {/* Channel Selector */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex items-center gap-4">
+            {/* Channel Selector + Reset */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex items-center gap-4 flex-wrap">
               <span className="text-sm font-medium text-slate-700">Kanal:</span>
               <div className="flex gap-2">
                 {(['amazon', 'trendyol', 'bayi', 'custom'] as Channel[]).map(ch => (
@@ -323,6 +348,33 @@ export default function Home() {
                 </div>
               )}
               <span className="text-sm text-slate-400 ml-auto">Komisyon: {Math.round(getChannelCommission() * 100)}% | Reklam: {Math.round(getChannelAds() * 100)}%</span>
+              <div className="flex items-center gap-2 border-l border-slate-300 pl-4">
+                {resetConfirm === 'basket' ? (
+                  <>
+                    <span className="text-sm text-red-600">Sepeti temizle?</span>
+                    <button onClick={clearBasket} className="px-3 py-1 bg-red-600 text-white text-sm rounded">Evet</button>
+                    <button onClick={() => setResetConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
+                  </>
+                ) : resetConfirm === 'inventory' ? (
+                  <>
+                    <span className="text-sm text-red-600">Envanteri temizle?</span>
+                    <button onClick={clearInventory} className="px-3 py-1 bg-red-600 text-white text-sm rounded">Evet</button>
+                    <button onClick={() => setResetConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
+                  </>
+                ) : resetConfirm === 'all' ? (
+                  <>
+                    <span className="text-sm text-red-600">Tüm verileri sıfırla?</span>
+                    <button onClick={resetAllData} className="px-3 py-1 bg-red-600 text-white text-sm rounded">Evet</button>
+                    <button onClick={() => setResetConfirm(null)} className="px-3 py-1 bg-slate-200 text-slate-700 text-sm rounded">İptal</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setResetConfirm('basket')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Sepeti Temizle</button>
+                    <button onClick={() => setResetConfirm('inventory')} className="px-3 py-1 bg-slate-200 text-slate-600 text-sm rounded hover:bg-slate-300">Envanteri Temizle</button>
+                    <button onClick={() => setResetConfirm('all')} className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200">Tüm Verileri Sıfırla</button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Summary Cards */}
