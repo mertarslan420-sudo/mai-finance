@@ -1,0 +1,118 @@
+import { Product, BasketItem, OrderCosts } from '../types';
+
+export const DEFAULT_EXCHANGE_RATE = 44;
+export const COMMISSION_RATE = 0.18; // Amazon %18
+export const ADS_RATE = 0.05; // %5
+
+export const PRODUCTS: Product[] = [
+  { id: 't7', model: 'T7', costUSD: 3.9, salePriceTL: 849, role: 'HERO', shippingCost: 0.5, customsCost: 1.2, packagingCost: 0.3 },
+  { id: 't9', model: 'T9', costUSD: 8.0, salePriceTL: 1699, role: 'SUPPORT', shippingCost: 0.7, customsCost: 1.5, packagingCost: 0.4 },
+  { id: 'minix1', model: 'MINIX1', costUSD: 3.5, salePriceTL: 549, role: 'SUPPORT', shippingCost: 0.3, customsCost: 0.8, packagingCost: 0.2 },
+  { id: 'dc08', model: 'DC08', costUSD: 4.0, salePriceTL: 699, role: 'SUPPORT', shippingCost: 0.4, customsCost: 1.0, packagingCost: 0.3 },
+  { id: 'md9', model: 'MD9', costUSD: 6.9, salePriceTL: 1199, role: 'WEAK', shippingCost: 0.6, customsCost: 1.3, packagingCost: 0.35 },
+  { id: 'eb05', model: 'EB05', costUSD: 7.0, salePriceTL: 1299, role: 'WEAK', shippingCost: 0.6, customsCost: 1.3, packagingCost: 0.35 },
+];
+
+export function getProduct(id: string): Product | undefined {
+  return PRODUCTS.find(p => p.id === id);
+}
+
+export interface ProfitBreakdown {
+  revenue: number;
+  baseCost: number;
+  landedCost: number;
+  extraCostPerUnit: number;
+  totalCost: number;
+  commission: number;
+  adsCost: number;
+  netProfit: number;
+  margin: number;
+  marginAfterVAT: number;
+  vatAmount: number;
+}
+
+export function calculateProfitBreakdown(item: BasketItem, costs: OrderCosts, vatRate: number = 0): ProfitBreakdown {
+  const product = getProduct(item.productId);
+  if (!product) {
+    return { revenue: 0, baseCost: 0, landedCost: 0, extraCostPerUnit: 0, totalCost: 0, commission: 0, adsCost: 0, netProfit: 0, margin: 0, marginAfterVAT: 0, vatAmount: 0 };
+  }
+
+  const { quantity } = item;
+  const salePrice = product.salePriceTL;
+
+  // Revenue
+  const revenue = salePrice * quantity;
+
+  // Base cost (USD cost converted to TL)
+  const baseCost = product.costUSD * DEFAULT_EXCHANGE_RATE;
+
+  // Landed cost per unit (base + all per-unit import costs)
+  const landedCostPerUnit = baseCost
+    + (product.shippingCost * DEFAULT_EXCHANGE_RATE)
+    + (product.customsCost * DEFAULT_EXCHANGE_RATE)
+    + (product.packagingCost * DEFAULT_EXCHANGE_RATE);
+
+  // Order-level costs distributed per unit
+  const orderLevelPerUnit = quantity > 0
+    ? (costs.shipping + costs.customs + costs.inland + costs.other) / quantity
+    : 0;
+
+  // Total cost = (landedCostPerUnit * qty) + (orderLevelPerUnit * qty)
+  const totalCost = (landedCostPerUnit * quantity) + (orderLevelPerUnit * quantity);
+
+  // Commissions and ads
+  const commission = revenue * COMMISSION_RATE;
+  const adsCost = revenue * ADS_RATE;
+
+  // Net profit
+  const netProfit = revenue - commission - adsCost - totalCost;
+
+  // Margin
+  const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+  // VAT
+  const vatAmount = netProfit * vatRate;
+  const marginAfterVAT = revenue > 0 ? ((netProfit - vatAmount) / revenue) * 100 : 0;
+
+  return {
+    revenue,
+    baseCost: baseCost * quantity,
+    landedCost: landedCostPerUnit * quantity,
+    extraCostPerUnit: orderLevelPerUnit,
+    totalCost,
+    commission,
+    adsCost,
+    netProfit,
+    margin,
+    marginAfterVAT,
+    vatAmount
+  };
+}
+
+export function calculateNetProfit(item: BasketItem, costs: OrderCosts): {
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+} {
+  const breakdown = calculateProfitBreakdown(item, costs);
+  return {
+    revenue: breakdown.revenue,
+    cost: breakdown.totalCost,
+    profit: breakdown.netProfit,
+    margin: breakdown.margin
+  };
+}
+
+export function formatTL(amount: number): string {
+  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+}
+
+export function getRoleBadgeColor(role: string): string {
+  switch (role) {
+    case 'HERO': return 'bg-yellow-100 text-yellow-800';
+    case 'SUPPORT': return 'bg-blue-100 text-blue-800';
+    case 'WEAK': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+}
