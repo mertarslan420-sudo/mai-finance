@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PRODUCTS, calculateProfitBreakdown, calculateNetProfit, formatTL, getRoleBadgeColor } from '../lib/data';
 import { BasketItem, OrderCosts, Product } from '../types';
 
-type Tab = 'products' | 'order' | 'dashboard';
+type Tab = 'products' | 'order' | 'dashboard' | 'stok';
 type Channel = 'amazon' | 'trendyol' | 'bayi' | 'custom';
 
 const CHANNEL_RATES = {
@@ -65,6 +65,18 @@ export default function Home() {
 
   useEffect(() => { localStorage.setItem('mai_simulationPrices', JSON.stringify(simulationPrices)); }, [simulationPrices]);
 
+  // Inventory state
+  const [inventory, setInventory] = useState<Record<string, { incoming: number; sold: number }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_inventory');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  const [pendingStockOrder, setPendingStockOrder] = useState<{ items: BasketItem[]; costs: OrderCosts } | null>(null);
+
+  useEffect(() => { localStorage.setItem('mai_inventory', JSON.stringify(inventory)); }, [inventory]);
+
   // Get simulation price or fallback to product sale price
   const getSimPrice = (productId: string, salePriceTL: number) => {
     return simulationPrices[productId] ?? salePriceTL;
@@ -124,6 +136,23 @@ export default function Home() {
     setBasket(prev => prev.filter(i => i.productId !== productId));
   };
 
+  const confirmStockOrder = () => {
+    if (basket.length === 0) return;
+    // Add basket quantities to incoming stock
+    setInventory(prev => {
+      const next = { ...prev };
+      basket.forEach(item => {
+        const existing = next[item.productId] || { incoming: 0, sold: 0 };
+        next[item.productId] = { ...existing, incoming: existing.incoming + item.quantity };
+      });
+      return next;
+    });
+    // Keep basket items but show confirmation
+    setPendingStockOrder({ items: [...basket], costs: { ...costs } });
+    // Clear basket after stock confirmation
+    setBasket([]);
+  };
+
   const handleCSVExport = () => {
     const rows: string[] = [];
     
@@ -169,6 +198,20 @@ export default function Home() {
     rows.push(`Net Profit,${totals.expectedProfit}`);
     rows.push(`Avg Margin %,${avgMargin.toFixed(1)}`);
     
+    // Inventory section
+    rows.push('');
+    rows.push('INVENTORY');
+    rows.push('Product,Incoming,Sold,Remaining,Stock Value,Realized Revenue,Realized Profit');
+    products.forEach(p => {
+      const inv = inventory[p.id] || { incoming: 0, sold: 0 };
+      const remaining = inv.incoming - inv.sold;
+      const calc = calculateProfitBreakdown({ productId: p.id, quantity: 1 }, { shipping: 0, customs: 0, inland: 0, other: 0 }, 0, products, getChannelCommission(), getChannelAds());
+      const stockValue = remaining * calc.landedCost;
+      const realizedRevenue = inv.sold * p.salePriceTL;
+      const realizedProfit = inv.sold * (p.salePriceTL - (p.salePriceTL * getChannelCommission()) - (p.salePriceTL * getChannelAds()) - calc.landedCost);
+      rows.push(`${p.model},${inv.incoming},${inv.sold},${remaining},${stockValue.toFixed(2)},${realizedRevenue.toFixed(2)},${realizedProfit.toFixed(2)}`);
+    });
+
     const csv = rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -232,7 +275,7 @@ export default function Home() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 flex gap-1">
-        {(['dashboard', 'products', 'order'] as Tab[]).map(tab => (
+        {(['dashboard', 'products', 'order', 'stok'] as Tab[]).map(tab => (
           <button
             key={tab}
             type="button"
@@ -243,7 +286,7 @@ export default function Home() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab === 'dashboard' ? 'Dashboard' : tab === 'products' ? 'Ürünler' : 'Sipariş'}
+            {tab === 'dashboard' ? 'Dashboard' : tab === 'products' ? 'Ürünler' : tab === 'order' ? 'Sipariş' : 'Stok'}
           </button>
         ))}
       </div>
@@ -453,6 +496,66 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* STOK TAB */}
+        {activeTab === 'stok' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h2 className="font-semibold text-slate-900">Stok Takibi</h2>
+            </div>
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Gelen</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Satılan</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Stok</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Maliyet</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Stok Değeri</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ciro</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Kâr</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {products.map(p => {
+                  const inv = inventory[p.id] || { incoming: 0, sold: 0 };
+                  const remaining = inv.incoming - inv.sold;
+                  const calc = calculateProfitBreakdown({ productId: p.id, quantity: 1 }, { shipping: 0, customs: 0, inland: 0, other: 0 }, 0, products, getChannelCommission(), getChannelAds());
+                  const landedPerUnit = calc.landedCost;
+                  const stockValue = remaining * landedPerUnit;
+                  const realizedRevenue = inv.sold * p.salePriceTL;
+                  const realizedProfit = inv.sold * (p.salePriceTL - (p.salePriceTL * getChannelCommission()) - (p.salePriceTL * getChannelAds()) - landedPerUnit);
+                  
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">{p.model}</td>
+                      <td className="px-6 py-4 text-center text-green-600">{inv.incoming}</td>
+                      <td className="px-6 py-4 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={inv.sold}
+                          onChange={e => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setInventory(prev => ({ ...prev, [p.id]: { incoming: inv.incoming, sold: val } }));
+                          }}
+                          className="w-16 px-2 py-1 border border-slate-300 rounded text-center text-sm"
+                        />
+                      </td>
+                      <td className={`px-6 py-4 text-center font-bold ${remaining <= 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                        {remaining}
+                      </td>
+                      <td className="px-6 py-4 text-right text-slate-600">{formatTL(landedPerUnit)}</td>
+                      <td className={`px-6 py-4 text-right font-medium ${stockValue > 0 ? 'text-blue-600' : 'text-slate-400'}`}>{formatTL(stockValue)}</td>
+                      <td className="px-6 py-4 text-right text-green-600">{formatTL(realizedRevenue)}</td>
+                      <td className={`px-6 py-4 text-right font-bold ${realizedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatTL(realizedProfit)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -780,6 +883,18 @@ export default function Home() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+                    <button
+                      onClick={confirmStockOrder}
+                      disabled={basket.length === 0}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      Siparişi Stoka Aktar
+                    </button>
+                    {pendingStockOrder && (
+                      <span className="text-sm text-green-600">✓ {pendingStockOrder.items.length} ürün stoka aktarıldı</span>
+                    )}
                   </div>
                 </div>
               )}
