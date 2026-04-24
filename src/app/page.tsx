@@ -5,7 +5,7 @@ import { PRODUCTS, calculateProfitBreakdown, calculateNetProfit, formatTL, getRo
 import { BasketItem, OrderCosts, Product } from '../types';
 import * as XLSX from 'xlsx';
 
-type Tab = 'products' | 'order' | 'dashboard' | 'stok';
+type Tab = 'products' | 'order' | 'dashboard' | 'stok' | 'orders';
 type Channel = 'amazon' | 'trendyol' | 'bayi' | 'custom';
 
 const CHANNEL_RATES = {
@@ -78,6 +78,31 @@ export default function Home() {
   const [pendingStockOrder, setPendingStockOrder] = useState<{ items: BasketItem[]; costs: OrderCosts } | null>(null);
 
   useEffect(() => { localStorage.setItem('mai_inventory', JSON.stringify(inventory)); }, [inventory]);
+
+  // Saved orders state
+  const [savedOrders, setSavedOrders] = useState<Array<{
+    id: string;
+    timestamp: string;
+    items: BasketItem[];
+    costs: OrderCosts;
+    channel: string;
+    showVAT: boolean;
+    vatRate: number;
+    totalUnits: number;
+    totalCost: number;
+    expectedRevenue: number;
+    netProfit: number;
+    margin: number;
+    products: Product[];
+  }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mai_saved_orders');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => { localStorage.setItem('mai_saved_orders', JSON.stringify(savedOrders)); }, [savedOrders]);
 
   // Get simulation price or fallback to product sale price
   const getSimPrice = (productId: string, salePriceTL: number) => {
@@ -153,6 +178,43 @@ export default function Home() {
     setPendingStockOrder({ items: [...basket], costs: { ...costs } });
     // Clear basket after stock confirmation
     setBasket([]);
+  };
+
+  const saveOrder = () => {
+    if (basket.length === 0) return;
+    const order = {
+      id: 'ord_' + Date.now(),
+      timestamp: new Date().toISOString(),
+      items: [...basket],
+      costs: { ...costs },
+      channel: channel,
+      showVAT,
+      vatRate,
+      totalUnits,
+      totalCost: totals.totalCost,
+      expectedRevenue: totals.expectedRevenue,
+      netProfit: totals.expectedProfit,
+      margin: avgMargin,
+      products: [...products]
+    };
+    setSavedOrders(prev => [order, ...prev]);
+  };
+
+  const restoreOrder = (orderId: string) => {
+    const order = savedOrders.find(o => o.id === orderId);
+    if (!order) return;
+    if (!window.confirm('Mevcut sepet değiştirilecek. Devam etmek istiyor musunuz?')) return;
+    setBasket(order.items);
+    setCosts(order.costs);
+    setChannel(order.channel as Channel);
+    setShowVAT(order.showVAT);
+    setVatRate(order.vatRate);
+    setActiveTab('order');
+  };
+
+  const deleteOrder = (orderId: string) => {
+    if (!window.confirm('Sipariş silinecek. Emin misiniz?')) return;
+    setSavedOrders(prev => prev.filter(o => o.id !== orderId));
   };
 
   const handleCSVExport = () => {
@@ -402,7 +464,7 @@ export default function Home() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 flex gap-1">
-        {(['dashboard', 'products', 'order', 'stok'] as Tab[]).map(tab => (
+        {(['dashboard', 'products', 'order', 'stok', 'orders'] as Tab[]).map(tab => (
           <button
             key={tab}
             type="button"
@@ -413,7 +475,7 @@ export default function Home() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab === 'dashboard' ? 'Dashboard' : tab === 'products' ? 'Ürünler' : tab === 'order' ? 'Sipariş' : 'Stok'}
+            {tab === 'dashboard' ? 'Dashboard' : tab === 'products' ? 'Ürünler' : tab === 'order' ? 'Sipariş' : tab === 'stok' ? 'Stok' : 'Geçmiş'}
           </button>
         ))}
       </div>
@@ -714,6 +776,64 @@ export default function Home() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ORDERS TAB */}
+        {activeTab === 'orders' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h2 className="font-semibold text-slate-900">Sipariş Geçmişi</h2>
+            </div>
+            {savedOrders.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">Kayıtlı sipariş bulunamadı.</div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Tarih</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Ünite</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Maliyet</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ciro</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Kâr</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Marj</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Kanal</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {savedOrders.map(order => (
+                    <tr key={order.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">
+                        {new Date(order.timestamp).toLocaleString('tr-TR')}
+                      </td>
+                      <td className="px-6 py-4 text-center">{order.totalUnits}</td>
+                      <td className="px-6 py-4 text-right text-slate-600">{formatTL(order.totalCost)}</td>
+                      <td className="px-6 py-4 text-right text-blue-600">{formatTL(order.expectedRevenue)}</td>
+                      <td className={`px-6 py-4 text-right font-bold ${order.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatTL(order.netProfit)}</td>
+                      <td className={`px-6 py-4 text-right ${order.margin >= 20 ? 'text-green-600' : order.margin >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>{order.margin.toFixed(1)}%</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs">{order.channel}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => restoreOrder(order.id)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded mr-1 hover:bg-blue-500"
+                        >
+                          Geri Yükle
+                        </button>
+                        <button
+                          onClick={() => deleteOrder(order.id)}
+                          className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded hover:bg-red-200"
+                        >
+                          Sil
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
@@ -1054,6 +1174,13 @@ export default function Home() {
                       className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 disabled:opacity-50"
                     >
                       Siparişi Stoka Aktar
+                    </button>
+                    <button
+                      onClick={saveOrder}
+                      disabled={basket.length === 0}
+                      className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 disabled:opacity-50"
+                    >
+                      Siparişi Kaydet
                     </button>
                     {pendingStockOrder && (
                       <span className="text-sm text-green-600">✓ {pendingStockOrder.items.length} ürün stoka aktarıldı</span>
