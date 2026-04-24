@@ -43,7 +43,7 @@ export default function Home() {
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showProductModal, setShowProductModal] = useState(false);
-  const [newProduct, setNewProduct] = useState<{ model: string; role: 'HERO' | 'SUPPORT' | 'WEAK'; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: 'SUPPORT', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
+  const [newProduct, setNewProduct] = useState<{ model: string; role: string; costUSD: number; salePriceTL: number; commissionRate: number; adsRate: number }>({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
 
   // Persist to localStorage
   useEffect(() => { localStorage.setItem('mai_products', JSON.stringify(products)); }, [products]);
@@ -92,7 +92,7 @@ export default function Home() {
     if (!newProduct.model || newProduct.costUSD <= 0 || newProduct.salePriceTL <= 0) return;
     const id = 'p' + Date.now();
     setProducts(prev => [...prev, { ...newProduct, id, shippingCost: 0, customsCost: 0, packagingCost: 0 }]);
-    setNewProduct({ model: '', role: 'SUPPORT', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
+    setNewProduct({ model: '', role: '', costUSD: 0, salePriceTL: 0, commissionRate: 18, adsRate: 5 });
     setShowProductModal(false);
   };
 
@@ -238,11 +238,23 @@ export default function Home() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
-                      <select value={newProduct.role} onChange={e => setNewProduct({ ...newProduct, role: e.target.value as 'HERO' | 'SUPPORT' | 'WEAK' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
-                        <option value="HERO">HERO</option>
-                        <option value="SUPPORT">SUPPORT</option>
-                        <option value="WEAK">WEAK</option>
-                      </select>
+                      <input
+                        type="text"
+                        value={newProduct.role}
+                        onChange={e => setNewProduct({ ...newProduct, role: e.target.value.toUpperCase() })}
+                        placeholder="HERO, SUPPORT, TEST, ENTRY..."
+                        list="role-suggestions"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                      <datalist id="role-suggestions">
+                        <option value="HERO"/>
+                        <option value="SUPPORT"/>
+                        <option value="TEST"/>
+                        <option value="ENTRY"/>
+                        <option value="WEAK"/>
+                        <option value="CORE"/>
+                        <option value="DROP"/>
+                      </datalist>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>

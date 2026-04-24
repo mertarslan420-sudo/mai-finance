@@ -3,7 +3,7 @@ export interface Product {
   model: string;
   costUSD: number;
   salePriceTL: number;
-  role: 'HERO' | 'SUPPORT' | 'WEAK';
+  role: string;
   // Extra costs per unit (defaults)
   shippingCost: number;  // shipping cost per unit in USD
   customsCost: number;   // customs cost per unit in USD
