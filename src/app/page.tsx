@@ -174,17 +174,19 @@ export default function Home() {
     const product = products.find(p => p.id === item.productId);
     const simPrice = getSimPrice(item.productId, product?.salePriceTL || 0);
     const calc = calculateProfitBreakdown(item, costs, showVAT ? vatRate : 0, products, getChannelCommission(), getChannelAds());
-    const simRevenue = simPrice * item.quantity;
+    const simPriceExclVAT = showVAT && vatRate > 0 ? simPrice / (1 + vatRate) : simPrice;
+    const simRevenue = simPriceExclVAT * item.quantity;
     const simCommission = simRevenue * getChannelCommission();
     const simAds = simRevenue * getChannelAds();
     const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
+    const vatCollected = showVAT && vatRate > 0 ? (simPrice - simPriceExclVAT) * item.quantity : 0;
     return {
       totalCost: acc.totalCost + calc.landedCost + (calc.extraCostPerUnit * item.quantity),
       expectedRevenue: acc.expectedRevenue + simRevenue,
       expectedProfit: acc.expectedProfit + simProfit,
       totalCommission: acc.totalCommission + simCommission,
       totalAds: acc.totalAds + simAds,
-      totalVAT: acc.totalVAT + (simProfit * (showVAT ? vatRate : 0)),
+      totalVAT: acc.totalVAT + vatCollected,
     };
   }, { totalCost: 0, expectedRevenue: 0, expectedProfit: 0, totalCommission: 0, totalAds: 0, totalVAT: 0 });
 
@@ -310,7 +312,8 @@ export default function Home() {
       const simCommission = simRevenue * getChannelCommission();
       const simAds = simRevenue * getChannelAds();
       const simProfit = simRevenue - simCommission - simAds - calc.totalCost;
-      rows.push(`${product?.model || item.productId},${item.quantity},${product?.salePriceTL || 0},${simPrice},${simRevenue.toFixed(2)},${simProfit.toFixed(2)}`);
+      const vatCollected = showVAT && vatRate > 0 ? (simPrice - (showVAT && vatRate > 0 ? simPrice / (1 + vatRate) : simPrice)) * item.quantity : 0;
+    rows.push(`${product?.model || item.productId},${item.quantity},${product?.salePriceTL || 0},${simPrice},${simRevenue.toFixed(2)},${simProfit.toFixed(2)},${vatCollected.toFixed(2)}`);
     });
     
     // Order costs section
@@ -1258,7 +1261,6 @@ export default function Home() {
                           const product = products.find(p => p.id === item.productId);
                           if (!product) return null;
                           const simPrice = getSimPrice(item.productId, product.salePriceTL);
-                          // Get base calculation for costs structure
                           const calc = calculateProfitBreakdown({ ...item }, costs, 0, products, getChannelCommission(), getChannelAds());
                           // If VAT included, extract net price for calculations
                           const simPriceExclVAT = showVAT && vatRate > 0 ? simPrice / (1 + vatRate) : simPrice;
